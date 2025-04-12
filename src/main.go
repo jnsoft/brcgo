@@ -1,7 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/brcgo/src/util"
+)
 
 func main() {
-	fmt.Print("hej")
+
+	err := util.GenerateFile(5, "testfile.tmp")
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Println("Test file generated successfully.")
+	}
 }
