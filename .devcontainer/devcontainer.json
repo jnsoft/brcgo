@@ -1,0 +1,24 @@
+{
+    "name": "Go Dev Container",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "go.gopath": "/go",
+                "go.toolsGopath": "/go"
+            },
+            "extensions": [
+                "golang.go",
+                "ms-vscode.go"
+            ]   
+        }
+    },
+    "forwardPorts": [],
+    "postCreateCommand": "go mod tidy",
+    "remoteUser": "root",
+    "runArgs": ["--privileged"] 
+
+}
