@@ -2,13 +2,21 @@ package misc
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 )
 
+// Use a global random generator with a mutex for thread safety
+var (
+	globalRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	randMutex  sync.Mutex
+)
+
 func RandomInt(min, max int) int {
-	source := rand.NewSource(time.Now().UnixNano())
-	r := rand.New(source)
-	return r.Intn(max-min+1) + min
+	randMutex.Lock()
+	defer randMutex.Unlock()
+
+	return globalRand.Intn(max-min+1) + min
 }
 
 func GetRandomName(lg int) string {
@@ -17,12 +25,12 @@ func GetRandomName(lg int) string {
 
 	var res = make([]byte, lg)
 
-	source := rand.NewSource(time.Now().UnixNano())
-	r := rand.New(source)
+	randMutex.Lock()
+	defer randMutex.Unlock()
 
-	res[0] = upper[r.Intn(len(upper))]
+	res[0] = upper[globalRand.Intn(len(upper))]
 	for i := 1; i < lg; i++ {
-		res[i] = lower[r.Intn(len(lower))]
+		res[i] = lower[globalRand.Intn(len(lower))]
 	}
 
 	return string(res)

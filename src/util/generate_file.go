@@ -15,8 +15,8 @@ func GenerateFile(size int, fname string) error {
 	}
 	defer file.Close()
 
-	rowData := fmt.Sprintf("%s;%s", misc.GetRandomName(misc.RandomInt(3, 14)), get_temp())
 	for i := 0; i < size; i++ {
+		rowData := fmt.Sprintf("%s;%s", misc.GetRandomName(misc.RandomInt(3, 14)), get_temp())
 		_, err := file.WriteString(rowData + "\n")
 		if err != nil {
 			return fmt.Errorf("failed to write to file: %w", err)
