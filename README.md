@@ -19,3 +19,17 @@ Example of expected output:
 ```
 {Abha=-23.0/18.0/59.2, Abidjan=-16.2/26.0/67.3, Abéché=-10.0/29.4/69.0, ...}
 ```
+
+## Start
+```
+go mod init github.com/goEuler
+```
+
+## Run and Test
+```
+go build -v ./...
+go test -v ./...
+```
+
+
+```
