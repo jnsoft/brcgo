@@ -1,6 +1,7 @@
 package misc
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -11,6 +12,39 @@ var (
 	globalRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	randMutex  sync.Mutex
 )
+
+func TimeFunction(label string, f func() (any, error)) {
+	start := time.Now()
+	result, err := f()
+	elapsed := time.Since(start)
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("%s: %v (%s)\n", label, result, elapsed)
+}
+
+func TimeFunctionNoResult(label string, f func() error) {
+	start := time.Now()
+	err := f()
+	elapsed := time.Since(start)
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("%s completed in %s\n", label, elapsed)
+}
+
+func TimeFunctionVoid(label string, f func()) {
+	start := time.Now()
+	f()
+	elapsed := time.Since(start)
+	fmt.Printf("%s completed in %s\n", label, elapsed)
+}
 
 func RandomInt(min, max int) int {
 	randMutex.Lock()
