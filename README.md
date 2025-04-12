@@ -20,8 +20,22 @@ Example of expected output:
 {Abha=-23.0/18.0/59.2, Abidjan=-16.2/26.0/67.3, Abéché=-10.0/29.4/69.0, ...}
 ```
 
+## Attemp 1  
+* Reader: sends lines to lineChan
+* Parsers: convert lines to (key, float) and send to correct aggregator (based on hash of key)
+* Aggregators (each owns a set of keys):
+ * Track local stats
+ * Send final map + stats to main thread
+* Main thread: Merges all maps, prints stats and results
+
+
+
 ## Start
 ```
+read -s username
+git config --global user.email $username@users.noreply.github.com
+git config --global user.name $username
+
 go mod init github.com/brcgo
 ```
 
@@ -32,4 +46,22 @@ go test -v ./...
 ```
 
 
+```
+
+
+### Extra
+
+```
+hashmap := make(map[string]int)
+hashmap["A"] = 25
+value, exists := hashmap["A"]
+isEmpty := len(hashmap) == 0
+for key, value := range hashmap {
+        fmt.Printf("%s -> %d\n", key, value)
+}
+toSlice := make([]int, 0, len(s.data))
+    for key := range s.data {
+        result = append(result, key)
+}
+delete(hashmap, "A")
 ```
