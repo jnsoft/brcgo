@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     unzip \
+    graphviz \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Delve for debugging
