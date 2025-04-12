@@ -2,179 +2,120 @@ package main
 
 import (
 	"fmt"
-	"hash/fnv"
-	"strconv"
-	"strings"
+	"math"
+	"sort"
 	"sync"
 	"time"
 
+	"github.com/brcgo/src/models"
 	"github.com/brcgo/src/util"
+	"github.com/brcgo/src/workers"
 )
 
 const (
-	NO_OF_PARSER_WORKERS     = 10
-	NO_OF_AGGREGATOR_WORKERS = 3
+	NO_OF_PARSER_WORKERS     = 2
+	NO_OF_AGGREGATOR_WORKERS = 2
 	ERROR                    = "❌ Error reading file"
 	WARNING                  = "⚠️ Warning"
 	DONE                     = "✅ Done"
 )
-
-type ParsedData struct {
-	Key   string
-	Value float64
-}
-
-type AggregatorResult struct {
-	ID    int
-	Data  map[string]float64
-	Stats AggregatorStats
-}
-
-type AggregatorStats struct {
-	LinesProcessed int
-	UniqueKeys     int
-	TotalValue     float64
-}
 
 func main() {
 	fname := "testfile_100.tmp"
 
 	if false {
 		util.GenerateFile(1000000, 1500, fname)
-	} else {
+		return
+	}
 
-		fmt.Println("Setup plumbing...")
+	fmt.Println("Setup plumbing...")
 
-		lineChan := make(chan string)
-		parsedChans := make([]chan ParsedData, NO_OF_AGGREGATOR_WORKERS)
-		resultChan := make(chan AggregatorResult, NO_OF_AGGREGATOR_WORKERS)
+	lineChan := make(chan string)
+	parsedChans := make([]chan models.ParsedData, NO_OF_AGGREGATOR_WORKERS)
+	resultChan := make(chan workers.AggregatorResult, NO_OF_AGGREGATOR_WORKERS)
 
-		// Create aggregator channels
-		for i := range parsedChans {
-			parsedChans[i] = make(chan ParsedData, 100)
-		}
+	// Create aggregator channels
+	for i := range parsedChans {
+		parsedChans[i] = make(chan models.ParsedData, 100)
+	}
 
-		// Start aggregators
-		var wgAggregators sync.WaitGroup
-		for i := 0; i < NO_OF_AGGREGATOR_WORKERS; i++ {
-			wgAggregators.Add(1)
-			go aggregatorWorker(i, parsedChans[i], resultChan, &wgAggregators)
-		}
+	// Start aggregators
+	var wgAggregators sync.WaitGroup
+	for i := 0; i < NO_OF_AGGREGATOR_WORKERS; i++ {
+		wgAggregators.Add(1)
+		go workers.AggregatorWorker(i, parsedChans[i], resultChan, &wgAggregators)
+	}
 
-		// Start parsers
-		var wgParsers sync.WaitGroup
-		for i := 0; i < NO_OF_PARSER_WORKERS; i++ {
-			wgParsers.Add(1)
-			go parserWorker(i, lineChan, parsedChans, NO_OF_AGGREGATOR_WORKERS, &wgParsers)
-		}
+	// Start parsers
+	var wgParsers sync.WaitGroup
+	for i := 0; i < NO_OF_PARSER_WORKERS; i++ {
+		wgParsers.Add(1)
+		go workers.ParserWorker(i, lineChan, parsedChans, NO_OF_AGGREGATOR_WORKERS, &wgParsers)
+	}
 
-		fmt.Println("Starting pipeline...")
-		startTime := time.Now()
+	fmt.Println("Starting pipeline...")
+	startTime := time.Now()
 
-		// Reader
-		err := util.ReadFileLines(fname, lineChan)
-		if err != nil {
-			fmt.Printf("Error reading file: %v\n", err)
-		}
+	// Reader
+	err := util.ReadFileLines(fname, lineChan)
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", err)
+	}
 
-		close(lineChan)
+	close(lineChan)
 
-		wgParsers.Wait()
-		for _, ch := range parsedChans {
-			close(ch)
-		}
-		wgAggregators.Wait()
-		close(resultChan)
+	wgParsers.Wait()
+	for _, ch := range parsedChans {
+		close(ch)
+	}
 
-		// Combine results
-		finalMap := make(map[string]float64)
-		var totalStats AggregatorStats
-		for res := range resultChan {
-			fmt.Printf("Aggregator %d stats: %d lines, %d keys, total %.2f\n",
-				res.ID, res.Stats.LinesProcessed, res.Stats.UniqueKeys, res.Stats.TotalValue)
+	wgAggregators.Wait()
+	close(resultChan)
 
-			for k, v := range res.Data {
-				finalMap[k] += v
+	// Combine results
+	finalMap := make(map[string]models.StationData)
+	var totalStats workers.AggregatorStats
+	for res := range resultChan {
+		fmt.Printf("Aggregator %d stats: %d items, %d keys\n",
+			res.ID, res.Stats.ItemsProcessed, res.Stats.UniqueKeys)
+
+		for k, v := range res.Data {
+			value, exists := finalMap[k]
+			if !exists {
+				finalMap[k] = models.StationData{
+					Min:   v.Min,
+					Max:   v.Max,
+					Sum:   v.Sum,
+					Count: v.Count,
+				}
+			} else {
+				finalMap[k] = models.StationData{
+					Min:   math.Min(v.Min, value.Min),
+					Max:   math.Max(v.Max, value.Max),
+					Sum:   value.Sum + v.Sum,
+					Count: value.Count + v.Count,
+				}
 			}
 
-			totalStats.LinesProcessed += res.Stats.LinesProcessed
-			totalStats.UniqueKeys += res.Stats.UniqueKeys // rough count, may have overlap
-			totalStats.TotalValue += res.Stats.TotalValue
 		}
 
-		// Output
-		fmt.Println("\n Final aggregated results:")
-		for k, v := range finalMap {
-			fmt.Printf("%s: %.2f\n", k, v)
-		}
-
-		elapsed := time.Since(startTime)
-		fmt.Printf("\nDone in %s. Processed %d lines, approx. %d unique keys, total sum %.2f\n",
-			elapsed, totalStats.LinesProcessed, len(finalMap), totalStats.TotalValue)
-	}
-}
-
-func parserWorker(id int, lines <-chan string, parsedChans []chan ParsedData, shardCount int, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for line := range lines {
-		parts := strings.Split(line, ";")
-		if len(parts) != 2 {
-			fmt.Printf("Parser %d: Invalid line: %s\n", id, line)
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		valStr := strings.TrimSpace(parts[1])
-
-		value, err := strconv.ParseFloat(valStr, 64)
-		if err != nil {
-			fmt.Printf("Parser %d: Failed to parse float: %s\n", id, line)
-			continue
-		}
-
-		data := ParsedData{Key: key, Value: value}
-		shard := hashKey(key) % shardCount
-		parsedChans[shard] <- data
-	}
-}
-
-func aggregatorWorker(id int, input <-chan ParsedData, out chan<- AggregatorResult, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	localMap := make(map[string]float64)
-	var stats AggregatorStats
-
-	for data := range input {
-		localMap[data.Key] += data.Value
-		stats.LinesProcessed++
-		stats.TotalValue += data.Value
+		totalStats.ItemsProcessed += res.Stats.ItemsProcessed
+		totalStats.UniqueKeys += res.Stats.UniqueKeys // may have overlap
 	}
 
-	stats.UniqueKeys = len(localMap)
-
-	out <- AggregatorResult{
-		ID:    id,
-		Data:  localMap,
-		Stats: stats,
+	// Sort and print final results
+	keys := make([]string, 0, len(finalMap))
+	for k := range finalMap {
+		keys = append(keys, k)
 	}
-}
+	sort.Strings(keys)
 
-func hashKey(key string) int {
-	h := fnv.New32a()
-	h.Write([]byte(key))
-	return int(h.Sum32())
-}
+	fmt.Println("\n Final aggregated results:")
+	for _, k := range keys {
+		fmt.Printf("%s=%s\n", k, finalMap[k].String())
+	}
 
-/*
-hashmap := make(map[string]int)
-hashmap["A"] = 25
-value, exists := hashmap["A"]
-isEmpty := len(hashmap) == 0
-for key, value := range hashmap {
-        fmt.Printf("%s -> %d\n", key, value)
+	elapsed := time.Since(startTime)
+	fmt.Printf("\nDone in %s. Processed %d lines, approx. %d unique keys\n",
+		elapsed, totalStats.ItemsProcessed, len(finalMap))
 }
-toSlice := make([]int, 0, len(s.data))
-    for key := range s.data {
-        result = append(result, key)
-}
-delete(hashmap, "A")
-*/
