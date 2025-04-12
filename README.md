@@ -22,7 +22,7 @@ Example of expected output:
 
 ## Start
 ```
-go mod init github.com/goEuler
+go mod init github.com/brcgo
 ```
 
 ## Run and Test
