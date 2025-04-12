@@ -1,7 +1,7 @@
 # Billion Rows Challenge in Go
 
 ## Challenge
-The challenge is to read a file with 1 billion lines, aggregating the information contained in each line and print a report with the result. Each line contains a weather station name and a temperature reading in the format *<station name>;<temperature>*. Station name may have spaces and other special characters excluding ;, and the temperature is a floating-point number ranging from -99.9 to 99.9 with precision limited to one decimal point. The expected output format is *{<station name>=<min>/<mean/<max>, ...}*  
+The challenge is to read a file with 1 billion lines, aggregating the information contained in each line and print a report with the result. Each line contains a weather station name and a temperature reading in the format * <station name>;<temperature> * Station name may have spaces and other special characters excluding ;, and the temperature is a floating-point number ranging from -99.9 to 99.9 with precision limited to one decimal point. The expected output format is *{<station name>=<min>/<mean/<max>, ...}*  
 
 Example of a measurement file:
 ```
