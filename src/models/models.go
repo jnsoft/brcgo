@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+const (
+	ASCII_SEMICOLUN = 59 // ';'
+	ASCII_MINUS     = 45 // '-'
+	ASCII_DOT       = 46 // '.'
+	ASCII_ZERO      = 48 // 0=48, 1=49...
+)
+
 type ParsedData struct {
 	Key   string
 	Value float64
@@ -13,6 +20,11 @@ type ParsedData struct {
 
 type ParsedDataInt struct {
 	Key   string
+	Value int
+}
+
+type ParsedDataByteInt struct {
+	Key   []byte
 	Value int
 }
 
@@ -89,7 +101,7 @@ func ParseLineInt(line string) ParsedDataInt {
 	}
 	fac := 1
 	n := 0
-	for i := lg - 1; i > ix+neg; ix++ {
+	for i := lg - 1; i > ix+neg; i-- {
 		if line[i] != '.' {
 			n += fac * int(line[i])
 			fac *= 10
@@ -97,5 +109,31 @@ func ParseLineInt(line string) ParsedDataInt {
 	}
 
 	key = line[:ix]
+	return ParsedDataInt{Key: key, Value: n}
+}
+
+func ParseByteLineInt(line []byte) ParsedDataInt {
+	lg := len(line)
+
+	var ix int
+	for ix = 0; ix < lg; ix++ {
+		if line[ix] == ASCII_SEMICOLUN {
+			break
+		}
+	}
+	neg := 0
+	if line[ix+1] == ASCII_MINUS {
+		neg = 1
+	}
+	fac := 1
+	n := 0
+	for i := lg - 1; i > ix+neg; i-- {
+		if line[i] != ASCII_DOT {
+			n += fac * int(ASCII_ZERO-line[i])
+			fac *= 10
+		}
+	}
+
+	key := string(line[:ix])
 	return ParsedDataInt{Key: key, Value: n}
 }
