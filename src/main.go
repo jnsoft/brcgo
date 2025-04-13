@@ -23,7 +23,7 @@ const (
 )
 
 func main() {
-	fname := "testfile_10000000.tmp"
+	fname := "testfile_1000000.tmp"
 
 	if false {
 		util.GenerateFile(1000000, 1500, fname)

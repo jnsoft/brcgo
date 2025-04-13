@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	ASCII_SEMICOLUN = 59 // ';'
+	ASCII_SEMICOLON = 59 // ';'
 	ASCII_MINUS     = 45 // '-'
 	ASCII_DOT       = 46 // '.'
 	ASCII_ZERO      = 48 // 0=48, 1=49...
@@ -116,8 +116,9 @@ func ParseByteLineInt(line []byte) ParsedDataInt {
 	lg := len(line)
 
 	var ix int
+	// find split
 	for ix = 0; ix < lg; ix++ {
-		if line[ix] == ASCII_SEMICOLUN {
+		if line[ix] == ASCII_SEMICOLON {
 			break
 		}
 	}
@@ -125,6 +126,7 @@ func ParseByteLineInt(line []byte) ParsedDataInt {
 	if line[ix+1] == ASCII_MINUS {
 		neg = 1
 	}
+	// read number
 	fac := 1
 	n := 0
 	for i := lg - 1; i > ix+neg; i-- {
