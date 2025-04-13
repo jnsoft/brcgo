@@ -91,17 +91,11 @@ func ParseLineInt(line string) ParsedDataInt {
 	n := 0
 	for i := lg - 1; i > ix+neg; ix++ {
 		if line[i] != '.' {
-			n += fac * line[i]
+			n += fac * int(line[i])
+			fac *= 10
 		}
 	}
 
 	key = line[:ix]
-	val := line[ix+1:]
-
-	value, err := strconv.ParseFloat(val, 64)
-	if err != nil {
-		panic(fmt.Sprintf(" Failed to parse float: %s", line))
-	}
-
-	return ParsedDataInt{Key: key, Value: value}
+	return ParsedDataInt{Key: key, Value: n}
 }

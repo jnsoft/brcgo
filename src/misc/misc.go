@@ -3,6 +3,8 @@ package misc
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"runtime/pprof"
 	"sync"
 	"time"
 )
@@ -14,6 +16,7 @@ var (
 )
 
 func TimeFunction(label string, f func() (any, error)) {
+
 	start := time.Now()
 	result, err := f()
 	elapsed := time.Since(start)
@@ -26,9 +29,21 @@ func TimeFunction(label string, f func() (any, error)) {
 	fmt.Printf("%s: %v (%s)\n", label, result, elapsed)
 }
 
-func TimeFunctionNoResult(label string, f func() error) {
+// view profile: go tool pprof -http 127.0.0.1:8080 ./cpu_profile.prof
+func ProfileFunction(label, prof_file string, f func() (any, error)) {
+	pfile, err := os.Create(prof_file)
+	if err != nil {
+		panic(err)
+	}
+	defer pfile.Close()
+
+	if err := pprof.StartCPUProfile(pfile); err != nil {
+		panic(err)
+	}
+	defer pprof.StopCPUProfile()
+
 	start := time.Now()
-	err := f()
+	result, err := f()
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -36,14 +51,8 @@ func TimeFunctionNoResult(label string, f func() error) {
 		return
 	}
 
-	fmt.Printf("%s completed in %s\n", label, elapsed)
-}
+	fmt.Printf("%s: %v (%s)\n", label, result, elapsed)
 
-func TimeFunctionVoid(label string, f func()) {
-	start := time.Now()
-	f()
-	elapsed := time.Since(start)
-	fmt.Printf("%s completed in %s\n", label, elapsed)
 }
 
 func RandomInt(min, max int) int {
@@ -68,4 +77,18 @@ func GetRandomName(lg int) string {
 	}
 
 	return string(res)
+}
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
