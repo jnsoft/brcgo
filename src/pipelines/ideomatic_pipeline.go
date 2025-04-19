@@ -7,7 +7,7 @@ import (
 	"github.com/brcgo/src/workers"
 )
 
-func RunIdeomotaticPipeline[T any](fname string, parser func(string) (T, error), collector func(T), verbose bool) {
+func IdeomotaticPipeline[T, U any](fname string, parser func(string) (T, error), collector func(T), printer func(), verbose bool) {
 	lines := make(chan string)
 	parsed := make(chan T)
 
@@ -20,5 +20,7 @@ func RunIdeomotaticPipeline[T any](fname string, parser func(string) (T, error),
 	go workers.ParseLines[T](lines, parsed, parser)
 
 	workers.Collect(parsed, collector)
+
+	printer()
 
 }

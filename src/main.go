@@ -12,6 +12,7 @@ import (
 	"github.com/brcgo/src/misc"
 	"github.com/brcgo/src/pipelines"
 	"github.com/brcgo/src/util"
+	"github.com/brcgo/src/workers"
 )
 
 const (
@@ -24,30 +25,61 @@ const (
 )
 
 func main() {
-	fname := "testfile_100.tmp"
-	verbose := true
+	fname := "testfile_1000000.tmp"
+	verbose := false
 
 	if false {
 		util.GenerateFile(1000000, 1500, fname)
 		return
 	}
 
-	pipelines.RunIdeomotaticPipeline[domain.StringFloat](fname,
-		domain.ParseStringFloat,
-		func(m domain.StringFloat) {
-			fmt.Printf("Collected: %+v\n", m)
-		},
-		verbose)
+	hashmap := make(map[string]*domain.StationData)
 
-	//Naive(fname, false)
+	pipelines.Pipeline[string](
+		func(out chan<- string) error {
+			return workers.GetLines(fname, out)
+		},
+		[]pipelines.Stage[string]{
+			func(in <-chan string) <-chan domain.StringFloat {
+				return pipelines.ParallelMapStage[string, domain.StringFloat](8, domain.ParseStringFloat)(in)
+			},
+			func(in <-chan domain.StringFloat) <-chan domain.StringFloat {
+				return pipelines.ParallelCollectStage(4, func(d domain.StringFloat) {
+					domain.Aggregate(d, &hashmap)
+				})(in)
+			},
+		},
+		func() {
+			domain.PrintResult(&hashmap, verbose)
+		},
+	)
+
+	collector := func(data domain.StringFloat) {
+		domain.Aggregate(data, &hashmap)
+	}
+	printer := func() {
+		domain.PrintResult(&hashmap, verbose)
+	}
+
+	misc.ProfileFunction("Ideomatic pipeline", PROF_FNAME, func() (interface{}, error) {
+		pipelines.IdeomotaticPipeline[domain.StringFloat, domain.StationData](fname,
+			domain.ParseStringFloat,
+			collector,
+			printer,
+			verbose,
+		)
+		return 0, nil
+	})
+
+	Naive(fname, verbose)
 
 	//misc.ProfileFunction("Naive int", PROF_FNAME, func() (interface{}, error) {
 	//	return NaiveInt(fname, false), nil
 	//})
 
-	//misc.ProfileFunction("Naive int 2", PROF_FNAME, func() (interface{}, error) {
-	//	return NaiveInt2(fname, false), nil
-	//})
+	misc.ProfileFunction("Naive int 2", PROF_FNAME, func() (interface{}, error) {
+		return NaiveInt2(fname, false), nil
+	})
 
 	//pipelines.WorkerpoolPipeline(fname, 10, false)
 	//pipelines.ReadParseAggregatePipeline(fname, NO_OF_PARSER_WORKERS, NO_OF_AGGREGATOR_WORKERS, false)
