@@ -7,8 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/brcgo/src/models"
-	"github.com/brcgo/src/util"
+	"github.com/brcgo/src/domain"
 	"github.com/brcgo/src/workers"
 )
 
@@ -21,12 +20,12 @@ func ReadParseAggregatePipeline(fname string, NO_OF_PARSER_WORKERS, NO_OF_AGGREG
 	}
 
 	lineChan := make(chan string)
-	parsedChans := make([]chan models.ParsedData, NO_OF_AGGREGATOR_WORKERS)
+	parsedChans := make([]chan domain.StringFloat, NO_OF_AGGREGATOR_WORKERS)
 	resultChan := make(chan workers.AggregatorResult, NO_OF_AGGREGATOR_WORKERS)
 
 	// Create aggregator channels
 	for i := range parsedChans {
-		parsedChans[i] = make(chan models.ParsedData, 100)
+		parsedChans[i] = make(chan domain.StringFloat, 100)
 	}
 
 	// Start aggregators
@@ -48,7 +47,7 @@ func ReadParseAggregatePipeline(fname string, NO_OF_PARSER_WORKERS, NO_OF_AGGREG
 	}
 
 	// Reader
-	err := util.ReadFileLines(fname, lineChan)
+	err := workers.GetLines(fname, lineChan)
 	if err != nil {
 		fmt.Printf("Error reading file: %v\n", err)
 	}
@@ -64,7 +63,7 @@ func ReadParseAggregatePipeline(fname string, NO_OF_PARSER_WORKERS, NO_OF_AGGREG
 	close(resultChan)
 
 	// Combine results
-	finalMap := make(map[string]models.StationData)
+	finalMap := make(map[string]domain.StationData)
 	var totalStats workers.AggregatorStats
 	for res := range resultChan {
 		if verbose {
@@ -75,14 +74,14 @@ func ReadParseAggregatePipeline(fname string, NO_OF_PARSER_WORKERS, NO_OF_AGGREG
 		for k, v := range res.Data {
 			value, exists := finalMap[k]
 			if !exists {
-				finalMap[k] = models.StationData{
+				finalMap[k] = domain.StationData{
 					Min:   v.Min,
 					Max:   v.Max,
 					Sum:   v.Sum,
 					Count: v.Count,
 				}
 			} else {
-				finalMap[k] = models.StationData{
+				finalMap[k] = domain.StationData{
 					Min:   math.Min(v.Min, value.Min),
 					Max:   math.Max(v.Max, value.Max),
 					Sum:   value.Sum + v.Sum,

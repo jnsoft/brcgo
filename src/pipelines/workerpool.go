@@ -6,8 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/brcgo/src/models"
-	"github.com/brcgo/src/util"
+	"github.com/brcgo/src/domain"
 	"github.com/brcgo/src/workers"
 )
 
@@ -21,7 +20,7 @@ func WorkerpoolPipeline(fname string, NO_OF_WORKERS int, verbose bool) {
 	var wg sync.WaitGroup
 
 	// Shared map and mutex
-	resultMap := make(map[string]models.StationData)
+	resultMap := make(map[string]domain.StationData)
 	var mapMutex sync.Mutex
 
 	// Start worker pool
@@ -31,7 +30,7 @@ func WorkerpoolPipeline(fname string, NO_OF_WORKERS int, verbose bool) {
 	}
 
 	// Read file and send lines to channel
-	err := util.ReadFileLines(fname, lineChan)
+	err := workers.GetLines(fname, lineChan)
 	if err != nil {
 		fmt.Printf("Error reading file: %v\n", err)
 	}

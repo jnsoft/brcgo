@@ -4,7 +4,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/brcgo/src/models"
+	"github.com/brcgo/src/domain"
 )
 
 type AggregatorStats struct {
@@ -14,27 +14,27 @@ type AggregatorStats struct {
 
 type AggregatorResult struct {
 	ID    int
-	Data  map[string]models.StationData
+	Data  map[string]domain.StationData
 	Stats AggregatorStats
 }
 
-func AggregatorWorker(id int, input <-chan models.ParsedData, out chan<- AggregatorResult, wg *sync.WaitGroup) {
+func AggregatorWorker(id int, input <-chan domain.StringFloat, out chan<- AggregatorResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	hashmap := make(map[string]models.StationData)
+	hashmap := make(map[string]domain.StationData)
 	var stats AggregatorStats
 
 	for data := range input {
 		aggregated, exists := hashmap[data.Key]
 		if !exists {
-			hashmap[data.Key] = models.StationData{
+			hashmap[data.Key] = domain.StationData{
 				Min:   data.Value,
 				Max:   data.Value,
 				Sum:   data.Value,
 				Count: 1,
 			}
 		} else {
-			hashmap[data.Key] = models.StationData{
+			hashmap[data.Key] = domain.StationData{
 				Min:   math.Min(data.Value, aggregated.Min),
 				Max:   math.Max(data.Value, aggregated.Max),
 				Sum:   data.Value + aggregated.Sum,

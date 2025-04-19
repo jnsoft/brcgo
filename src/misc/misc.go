@@ -2,6 +2,7 @@ package misc
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
 	"os"
 	"runtime/pprof"
@@ -91,4 +92,11 @@ func Max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// Fowler-Noll-Vo hash (FNV-1a) algorithm
+func HashKey(key string) int {
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	return int(h.Sum32())
 }
