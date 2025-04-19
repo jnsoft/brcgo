@@ -12,12 +12,12 @@ func GetLines(filePath string, out chan<- string) error {
 		return err
 	}
 	defer file.Close()
+	defer close(out)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		out <- scanner.Text()
 	}
-	close(out)
 	return scanner.Err()
 }
 

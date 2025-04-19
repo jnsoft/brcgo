@@ -10,6 +10,7 @@ import (
 
 	"github.com/brcgo/src/domain"
 	"github.com/brcgo/src/misc"
+	"github.com/brcgo/src/pipeline"
 	"github.com/brcgo/src/pipelines"
 	"github.com/brcgo/src/util"
 	"github.com/brcgo/src/workers"
@@ -35,11 +36,11 @@ func main() {
 
 	hashmap := make(map[string]*domain.StationData)
 
-	pipelines.Pipeline[string](
+	pipeline.Pipeline[string](
 		func(out chan<- string) error {
 			return workers.GetLines(fname, out)
 		},
-		[]pipelines.Stage[string]{
+		[]pipeline.Stage[string]{
 			func(in <-chan string) <-chan domain.StringFloat {
 				return pipelines.ParallelMapStage[string, domain.StringFloat](8, domain.ParseStringFloat)(in)
 			},

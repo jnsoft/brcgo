@@ -63,6 +63,13 @@ func RandomInt(min, max int) int {
 	return globalRand.Intn(max-min+1) + min
 }
 
+func Random() float64 {
+	randMutex.Lock()
+	defer randMutex.Unlock()
+
+	return globalRand.Float64()
+}
+
 func GetRandomName(lg int) string {
 	const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	const lower = "abcdefghijklmnopqrstuvwxyz"
