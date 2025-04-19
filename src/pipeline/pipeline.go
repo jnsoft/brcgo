@@ -114,6 +114,31 @@ func ParallelCollectStage[T any](workers int, fn func(T)) Stage[T] {
 	}
 }
 
+func ParallelDoStage[T any](workers int, fn func(T)) func(<-chan T) <-chan T {
+	return func(in <-chan T) <-chan T {
+		out := make(chan T)
+		var wg sync.WaitGroup
+
+		for i := 0; i < workers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for val := range in {
+					fn(val)
+					out <- val // optional: forward data to next stage
+				}
+			}()
+		}
+
+		go func() {
+			wg.Wait()
+			close(out)
+		}()
+
+		return out
+	}
+}
+
 // Pipeline connects source → stages → final function.
 // Each stage processes and passes data forward through buffered channels.
 func Pipeline[A any](source func(chan<- A) error, stages []Stage[A], final func()) {

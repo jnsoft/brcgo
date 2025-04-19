@@ -60,12 +60,13 @@ func ThenDo[T any](prev PipelineBuilder[T], effect func(T)) PipelineBuilder[T] {
 	})
 }
 
-func Finally[T any](pb PipelineBuilder[T], final func(T)) {
+func Finally[T any](pb PipelineBuilder[T], final func(T)) PipelineBuilder[T] {
 	pb.run = func(in <-chan T) {
 		for val := range in {
 			final(val)
 		}
 	}
+	return pb
 }
 
 func Run[T any](pb PipelineBuilder[T], finalize func()) {

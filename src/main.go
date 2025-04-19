@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/brcgo/src/domain"
@@ -25,6 +26,11 @@ const (
 	PROF_FNAME               = "cpu_profile.prof"
 )
 
+var (
+	hashmap = make(map[string]*domain.StationData)
+	mu      sync.Mutex
+)
+
 func main() {
 	fname := "testfile_1000000.tmp"
 	verbose := false
@@ -34,26 +40,45 @@ func main() {
 		return
 	}
 
-	hashmap := make(map[string]*domain.StationData)
+	start := time.Now()
 
-	pipeline.Pipeline[string](
-		func(out chan<- string) error {
-			return workers.GetLines(fname, out)
-		},
-		[]pipeline.Stage[string]{
-			func(in <-chan string) <-chan domain.StringFloat {
-				return pipelines.ParallelMapStage[string, domain.StringFloat](8, domain.ParseStringFloat)(in)
-			},
-			func(in <-chan domain.StringFloat) <-chan domain.StringFloat {
-				return pipelines.ParallelCollectStage(4, func(d domain.StringFloat) {
-					domain.Aggregate(d, &hashmap)
-				})(in)
-			},
-		},
-		func() {
+	pb := pipeline.FromSource(func(out chan<- string) error {
+		return workers.GetLines(fname, out)
+	})
+
+	pb2 := pipeline.Then(pb, pipeline.ParallelMapStage[string, domain.StringFloat](8, domain.ParseStringFloat))
+
+	pb3 := pipeline.Then(pb2, pipeline.ParallelDoStage[domain.StringFloat](8, func(data domain.StringFloat) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		aggregated, exists := hashmap[data.Key]
+		if !exists {
+			hashmap[data.Key] = &domain.StationData{
+				Min:   data.Value,
+				Max:   data.Value,
+				Sum:   data.Value,
+				Count: 1,
+			}
+		} else {
+			if data.Value < aggregated.Min {
+				aggregated.Min = data.Value
+			} else if data.Value > aggregated.Max {
+				aggregated.Max = data.Value
+			}
+			aggregated.Sum += data.Value
+			aggregated.Count++
+		}
+	}))
+
+	misc.ProfileFunction("Pipelinebuilder", PROF_FNAME, func() (interface{}, error) {
+		pipeline.Run(pb3, func() {
 			domain.PrintResult(&hashmap, verbose)
-		},
-	)
+			fmt.Printf("Processed %d keys in %v\n", len(hashmap), time.Since(start))
+		})
+		return len(hashmap), nil
+	})
+	return
 
 	collector := func(data domain.StringFloat) {
 		domain.Aggregate(data, &hashmap)
