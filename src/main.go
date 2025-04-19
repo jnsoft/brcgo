@@ -201,3 +201,7 @@ func NaiveInt(fname string, verbose bool) error {
 
 	return scanner.Err()
 }
+
+func FullPipeline(fname string, verbose bool) {
+
+}
