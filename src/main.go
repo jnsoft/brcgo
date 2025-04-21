@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -128,10 +129,22 @@ func TestChannel2() {
 	}
 }
 
+func TestContext() {
+	timeOutContext, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+	defer cancel()
+
+	go WaitSeconds()
+}
+
 // simulate work
 func DoWork(i int) int {
 	time.Sleep(time.Millisecond * 500)
 	return i
+}
+
+func WaitSeconds(seconds int) bool {
+	time.Sleep(time.Second * time.Duration(seconds))
+	return true
 }
 
 func RunPipeline(fname string, verbose bool) {
