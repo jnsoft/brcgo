@@ -160,6 +160,13 @@ func MapStage[A, B any](mapper func(A) (B, error)) Transform[A, B] {
 	}
 }
 
+// Wrapper for MapStage hat turns a Transform (A → B) into a Stage (A → A) (if A and B are thesame type)
+func TransformToStage[T any](t Transform[T, T]) Stage[T] {
+	return func(in <-chan T) <-chan T {
+		return t(in)
+	}
+}
+
 // CollectStage applies a function to each item and passes it through (side-effect only).
 func CollectStage[T any](fn func(T)) Stage[T] {
 	return func(in <-chan T) <-chan T {
