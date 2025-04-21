@@ -6,16 +6,146 @@ import (
 	"sync"
 )
 
-// Stage is a processing step that transforms A → A (with optional side-effects).
-type Stage[A any] func(<-chan A) <-chan A
+const (
+	BUFFER_SIZE = 128
+)
 
-// TransformStage is a pipeline step that converts A → B.
-type TransformStage[A, B any] func(<-chan A) <-chan B
+/*
+Manual pipelines with Pipeline(...)
+Builder-style pipelines with FromSource(...)
+*/
 
-// MapStage maps items from type A to type B using a function.
-func MapStage[A, B any](mapper func(A) (B, error)) TransformStage[A, B] {
+type PipelineBuilder[T any] struct {
+	source Source[T]
+	run    func(<-chan T)
+}
+
+// --- Pipeline Builder (Fluent Interface) ---
+
+// FromSource starts a pipeline from a source.
+func FromSource[T any](src func(chan<- T) error) PipelineBuilder[T] {
+	return PipelineBuilder[T]{source: src}
+}
+
+// Then adds a transformation to the pipeline.
+func Then[T, U any](prev PipelineBuilder[T], transform func(<-chan T) <-chan U) PipelineBuilder[U] {
+	return PipelineBuilder[U]{
+		source: func(out chan<- U) error {
+			in := make(chan T, BUFFER_SIZE)
+			outChan := transform(in)
+
+			errCh := make(chan error, 1)
+			go func() {
+				err := prev.source(in)
+				//close(in)
+				errCh <- err
+			}()
+
+			for val := range outChan {
+				out <- val
+			}
+			close(out)
+
+			return <-errCh
+		},
+	}
+}
+
+// ThenDo adds a side-effect (non-transforming) stage.
+func ThenDo[T any](prev PipelineBuilder[T], effect func(T)) PipelineBuilder[T] {
+	return Then(prev, func(in <-chan T) <-chan T {
+		out := make(chan T, BUFFER_SIZE)
+		go func() {
+			defer close(out)
+			for val := range in {
+				effect(val)
+				out <- val
+			}
+		}()
+		return out
+	})
+}
+
+// Finally adds a final consumer for the data.
+func Finally[T any](pb PipelineBuilder[T], final func(T)) PipelineBuilder[T] {
+	pb.run = func(in <-chan T) {
+		for val := range in {
+			final(val)
+		}
+	}
+	return pb
+}
+
+// Run starts the pipeline and calls finalize when complete.
+func Run[T any](pb PipelineBuilder[T], finalize func()) {
+	ch := make(chan T, BUFFER_SIZE)
+	go func() {
+		if err := pb.source(ch); err != nil {
+			fmt.Fprintf(os.Stderr, "Pipeline error: %v\n", err)
+		}
+	}()
+	if pb.run != nil {
+		pb.run(ch)
+	} else {
+		for range ch {
+		}
+	}
+	if finalize != nil {
+		finalize()
+	}
+}
+
+// --- Low-level pipeline runner ---
+// Pipeline connects source → stages → final function.
+// Each stage processes and passes data forward through buffered channels.
+func Pipeline[A any](source func(chan<- A) error, stages []Stage[A], final func()) {
+	src := make(chan A, BUFFER_SIZE)
+
+	// Start source in a goroutine
+	go func() {
+		if err := source(src); err != nil {
+			fmt.Fprintf(os.Stderr, "Error in source: %v\n", err)
+		}
+	}()
+
+	var ch <-chan A = src // narrow type for read-only
+
+	// Apply all stages
+	for _, stage := range stages {
+		ch = stage(ch)
+	}
+
+	// Drain final output
+	for range ch {
+		// if the last stage is TerminalStage, this is empty
+		// Final result is consumed or discarded
+	}
+
+	// Optional final hook
+	if final != nil {
+		final()
+	}
+}
+
+// --- Core types ---
+// Source produces values of type T into a channel
+type Source[T any] func(chan<- T) error
+
+// Stage is a processing step that transforms T → T (with optional side-effects).
+type Stage[T any] func(<-chan T) <-chan T
+
+// Transform is a pipeline step that maps from T → U
+type Transform[T, U any] func(<-chan T) <-chan U
+
+// A side-effect stage that doesn’t change the type
+type Effect[T any] func(T)
+
+// --- Functional helpers ---
+
+// MapStage maps items from A to B using a function, emits only successful results.
+func MapStage[A, B any](mapper func(A) (B, error)) Transform[A, B] {
 	return func(in <-chan A) <-chan B {
-		out := make(chan B, 128)
+		out := make(chan B, BUFFER_SIZE)
 		go func() {
 			defer close(out)
 			for item := range in {
@@ -33,7 +163,7 @@ func MapStage[A, B any](mapper func(A) (B, error)) TransformStage[A, B] {
 // CollectStage applies a function to each item and passes it through (side-effect only).
 func CollectStage[T any](fn func(T)) Stage[T] {
 	return func(in <-chan T) <-chan T {
-		out := make(chan T, 128)
+		out := make(chan T, BUFFER_SIZE)
 		go func() {
 			defer close(out)
 			for item := range in {
@@ -60,9 +190,9 @@ func TerminalStage[T any](fn func(T)) Stage[T] {
 }
 
 // ParallelMapStage processes items in parallel with worker count.
-func ParallelMapStage[A, B any](workers int, mapper func(A) (B, error)) TransformStage[A, B] {
+func ParallelMapStage[A, B any](workers int, mapper func(A) (B, error)) Transform[A, B] {
 	return func(in <-chan A) <-chan B {
-		out := make(chan B, 128)
+		out := make(chan B, BUFFER_SIZE)
 		var wg sync.WaitGroup
 
 		for i := 0; i < workers; i++ {
@@ -88,10 +218,10 @@ func ParallelMapStage[A, B any](workers int, mapper func(A) (B, error)) Transfor
 	}
 }
 
-// ParallelCollectStage runs the collector function in parallel across N workers.
+// ParallelCollectStage runs side-effects in parallel.
 func ParallelCollectStage[T any](workers int, fn func(T)) Stage[T] {
 	return func(in <-chan T) <-chan T {
-		out := make(chan T, 128)
+		out := make(chan T, BUFFER_SIZE)
 		var wg sync.WaitGroup
 
 		for i := 0; i < workers; i++ {
@@ -136,36 +266,5 @@ func ParallelDoStage[T any](workers int, fn func(T)) func(<-chan T) <-chan T {
 		}()
 
 		return out
-	}
-}
-
-// Pipeline connects source → stages → final function.
-// Each stage processes and passes data forward through buffered channels.
-func Pipeline[A any](source func(chan<- A) error, stages []Stage[A], final func()) {
-	src := make(chan A, 128)
-
-	// Start source in a goroutine
-	go func() {
-		if err := source(src); err != nil {
-			fmt.Fprintf(os.Stderr, "Error in source: %v\n", err)
-		}
-	}()
-
-	var ch <-chan A = src // narrow type for read-only
-
-	// Apply all stages
-	for _, stage := range stages {
-		ch = stage(ch)
-	}
-
-	// Drain final output
-	for range ch {
-		// if the last stage is TerminalStage, this is empty
-		// Final result is consumed or discarded
-	}
-
-	// Optional final hook
-	if final != nil {
-		final()
 	}
 }
