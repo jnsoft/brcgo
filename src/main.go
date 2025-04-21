@@ -34,12 +34,107 @@ var (
 func main() {
 	fname := "testfile_1000000.tmp"
 	verbose := false
+	if verbose {
+		fmt.Println(verbose)
+	}
 
 	if false {
 		util.GenerateFile(1000000, 1500, fname)
 		return
 	}
 
+	TestChannel2()
+
+	// RunPipeline(fname, verbose)
+	//RunPipeline2(fname, verbose)
+	//Naive(fname, verbose)
+
+	//misc.ProfileFunction("Naive int", PROF_FNAME, func() (interface{}, error) {
+	//	return NaiveInt(fname, false), nil
+	//})
+
+	//misc.ProfileFunction("Naive int 2", PROF_FNAME, func() (interface{}, error) {
+	//	return NaiveInt2(fname, false), nil
+	//})
+
+	//pipelines.WorkerpoolPipeline(fname, 10, false)
+	//pipelines.ReadParseAggregatePipeline(fname, NO_OF_PARSER_WORKERS, NO_OF_AGGREGATOR_WORKERS, false)
+
+}
+
+func WaitGroupExample() {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			fmt.Println(i)
+		}(i) // falls func with value i
+	}
+
+	wg.Wait() // blocks until all goroutines finish
+}
+
+func MutexExample() {
+	var mu sync.Mutex
+	count := 0
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			mu.Lock()
+			count++ // safe from race condition
+			mu.Unlock()
+		}()
+	}
+}
+
+func TestChannel1() {
+	dataChan := make(chan int)
+
+	go func() {
+		for i := range 100 {
+			dataChan <- i
+		}
+		close(dataChan)
+	}()
+
+	for n := range dataChan {
+		fmt.Printf("n=%d\n", n)
+	}
+}
+
+func TestChannel2() {
+
+	dataChan := make(chan int)
+
+	go func() {
+		wg := sync.WaitGroup{}
+
+		for i := range 100 {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				res := DoWork(j)
+				dataChan <- res
+			}(i)
+		}
+		wg.Wait()
+		close(dataChan)
+	}()
+
+	for n := range dataChan {
+		fmt.Printf("n=%d\n", n)
+	}
+}
+
+// simulate work
+func DoWork(i int) int {
+	time.Sleep(time.Millisecond * 500)
+	return i
+}
+
+func RunPipeline(fname string, verbose bool) {
 	start := time.Now()
 
 	pb := pipeline.FromSource(func(out chan<- string) error {
@@ -78,8 +173,9 @@ func main() {
 		})
 		return len(hashmap), nil
 	})
-	return
+}
 
+func RunPipeline2(fname string, verbose bool) {
 	collector := func(data domain.StringFloat) {
 		domain.Aggregate(data, &hashmap)
 	}
@@ -96,20 +192,6 @@ func main() {
 		)
 		return 0, nil
 	})
-
-	Naive(fname, verbose)
-
-	//misc.ProfileFunction("Naive int", PROF_FNAME, func() (interface{}, error) {
-	//	return NaiveInt(fname, false), nil
-	//})
-
-	misc.ProfileFunction("Naive int 2", PROF_FNAME, func() (interface{}, error) {
-		return NaiveInt2(fname, false), nil
-	})
-
-	//pipelines.WorkerpoolPipeline(fname, 10, false)
-	//pipelines.ReadParseAggregatePipeline(fname, NO_OF_PARSER_WORKERS, NO_OF_AGGREGATOR_WORKERS, false)
-
 }
 
 func Naive(fname string, verbose bool) error {
