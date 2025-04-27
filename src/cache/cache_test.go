@@ -3,6 +3,8 @@ package cache
 import (
 	"reflect"
 	"sort"
+	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -198,6 +200,129 @@ func TestLRUCache(t *testing.T) {
 
 		if _, ok := cache.Get("A"); ok {
 			t.Errorf("Expected A to be evicted")
+		}
+	})
+}
+
+func BenchmarkSimpleCache(b *testing.B) {
+	cache := NewSimpleCache[string, int]()
+	keys := make([]string, 1000)
+	items := make(map[string]int)
+	for i := 0; i < 1000; i++ {
+		keys[i] = "key" + strconv.Itoa(i)
+		items[keys[i]] = i
+	}
+
+	b.ResetTimer()
+
+	cache.SetMany(items)
+
+	for i := 0; i < 1000; i++ {
+		cache.Get(keys[i])
+	}
+}
+
+func BenchmarkLFUCache(b *testing.B) {
+	cache := NewLFUCache[string, int](1000)
+	keys := make([]string, 1000)
+	items := make(map[string]int)
+	for i := 0; i < 1000; i++ {
+		keys[i] = "key" + strconv.Itoa(i)
+		items[keys[i]] = i
+	}
+
+	b.ResetTimer()
+
+	cache.SetMany(items)
+
+	for i := 0; i < 1000; i++ {
+		cache.Get(keys[i])
+	}
+
+}
+func BenchmarkLRUCache(b *testing.B) {
+	cache := NewLRUCache[string, int](1000)
+	keys := make([]string, 1000)
+	items := make(map[string]int)
+	for i := 0; i < 1000; i++ {
+		keys[i] = "key" + strconv.Itoa(i)
+		items[keys[i]] = i
+	}
+
+	b.ResetTimer()
+
+	cache.SetMany(items)
+
+	for i := 0; i < 1000; i++ {
+		cache.Get(keys[i])
+	}
+}
+
+func BenchmarkSimpleCacheParallel(b *testing.B) {
+	cache := NewSimpleCache[string, int64]()
+	keys := make([]string, 1000)
+	items := make(map[string]int64)
+
+	for i := 0; i < 1000; i++ {
+		keys[i] = "key" + strconv.Itoa(i)
+		items[keys[i]] = int64(i)
+	}
+
+	cache.SetMany(items)
+	var counter int64
+	klen := int64(len(keys))
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			index := atomic.AddInt64(&counter, 1) % klen
+			cache.Get(keys[index])
+		}
+	})
+}
+
+func BenchmarkLFUCacheParallel(b *testing.B) {
+	cache := NewLFUCache[string, int64](1000)
+	keys := make([]string, 1000)
+	items := make(map[string]int64)
+
+	for i := 0; i < 1000; i++ {
+		keys[i] = "key" + strconv.Itoa(i)
+		items[keys[i]] = int64(i)
+	}
+
+	cache.SetMany(items)
+	var counter int64
+	klen := int64(len(keys))
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			index := atomic.AddInt64(&counter, 1) % klen
+			cache.Get(keys[index])
+		}
+	})
+}
+
+func BenchmarkLRUCacheParallel(b *testing.B) {
+	cache := NewLRUCache[string, int64](1000)
+	keys := make([]string, 1000)
+	items := make(map[string]int64)
+
+	for i := 0; i < 1000; i++ {
+		keys[i] = "key" + strconv.Itoa(i)
+		items[keys[i]] = int64(i)
+	}
+
+	cache.SetMany(items)
+	var counter int64
+	klen := int64(len(keys))
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			index := atomic.AddInt64(&counter, 1) % klen
+			cache.Get(keys[index])
 		}
 	})
 }
