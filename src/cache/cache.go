@@ -46,6 +46,7 @@ func (c *SimpleCache[K, V]) GetMany(keys []K) map[K]V {
 	}
 	return values
 }
+
 func (c *SimpleCache[K, V]) SetMany(items map[K]V) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
