@@ -1,31 +1,31 @@
 package cache
 
 import (
-	"container/heap"
 	"sync"
-	"time"
 )
 
-type node[K comparable, V any] struct {
+type Node[K comparable, V any] struct {
 	key   K
 	value V
-	prev  *node[K, V]
-	next  *node[K, V]
+	prev  *Node[K, V]
+	next  *Node[K, V]
 }
 
 // Each key maintains a timestamp, and the cache evicts the least recently used key when full
 type LRUCache[K comparable, V any] struct {
 	capacity int
 	mu       sync.Mutex
-	data     map[K]*Item[K, V]
-	heap     *CacheMinHeap[K, V]
+	data     map[K]*Node[K, V]
+	head     *Node[K, V]
+	tail     *Node[K, V]
 }
 
 func NewLRUCache[K comparable, V any](capacity int) *LRUCache[K, V] {
 	return &LRUCache[K, V]{
-		data:     make(map[K]*Item[K, V]),
-		heap:     &CacheMinHeap[K, V]{},
+		data:     make(map[K]*Node[K, V]),
 		capacity: capacity,
+		head:     nil,
+		tail:     nil,
 	}
 }
 
@@ -47,15 +47,12 @@ func (c *LRUCache[K, V]) Get(key K) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if item, ok := c.data[key]; !ok {
-		var missing V
-		return missing, false
-
-	} else {
-		item.priority = int(time.Now().UTC().Unix())
-		heap.Fix(c.heap, item.index)
-		return item.value, true
+	if node, ok := c.data[key]; ok {
+		c.moveToHead(node)
+		return node.value, true
 	}
+	var zero V
+	return zero, false
 }
 
 func (c *LRUCache[K, V]) GetMany(keys []K) (map[K]V, []K) {
@@ -75,13 +72,17 @@ func (c *LRUCache[K, V]) Set(key K, value V) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	item := &Item[K, V]{key: key, value: value, priority: int(time.Now().UTC().Unix())}
-	c.data[key] = item
-	heap.Push(c.heap, item)
-
-	if len(c.data) > c.capacity {
-		evicted := heap.Pop(c.heap).(*Item[K, V])
-		delete(c.data, evicted.key)
+	if node, exists := c.data[key]; exists {
+		node.value = value
+		c.moveToHead(node)
+	} else {
+		newNode := &Node[K, V]{key: key, value: value}
+		if len(c.data) == c.capacity {
+			delete(c.data, c.tail.key)
+			c.removeNode(c.tail)
+		}
+		c.addNode(newNode)
+		c.data[key] = newNode
 	}
 }
 
@@ -95,8 +96,8 @@ func (c *LRUCache[K, V]) Delete(key K) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if item, ok := c.data[key]; ok {
-		heap.Remove(c.heap, item.index)
+	if node, ok := c.data[key]; ok {
+		c.removeNode(node)
 		delete(c.data, key)
 	}
 }
@@ -104,9 +105,9 @@ func (c *LRUCache[K, V]) Delete(key K) {
 func (c *LRUCache[K, V]) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.data = make(map[K]*Item[K, V])
-	c.heap = &CacheMinHeap[K, V]{}
-	heap.Init(c.heap)
+	c.data = make(map[K]*Node[K, V])
+	c.head = nil
+	c.tail = nil
 }
 
 func (c *LRUCache[K, V]) Keys() []K {
@@ -127,6 +128,36 @@ func (c *LRUCache[K, V]) Values() []V {
 		values = append(values, item.value)
 	}
 	return values
+}
+
+func (c *LRUCache[K, V]) moveToHead(node *Node[K, V]) {
+	c.removeNode(node)
+	c.addNode(node)
+}
+
+func (c *LRUCache[K, V]) addNode(node *Node[K, V]) {
+	node.next = c.head
+	node.prev = nil
+	if c.head != nil {
+		c.head.prev = node
+	}
+	c.head = node
+	if c.tail == nil {
+		c.tail = node
+	}
+}
+
+func (c *LRUCache[K, V]) removeNode(node *Node[K, V]) {
+	if node.prev != nil {
+		node.prev.next = node.next
+	} else {
+		c.head = node.next
+	}
+	if node.next != nil {
+		node.next.prev = node.prev
+	} else {
+		c.tail = node.prev
+	}
 }
 
 var _ Cache[string, string] = (*LRUCache[string, string])(nil)

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	. "github.com/jnsoft/jngo/testhelper"
 )
@@ -160,8 +159,6 @@ func TestLRUCache(t *testing.T) {
 
 		isFound := cache.Contains("A")
 		AssertTrue(t, isFound)
-
-		time.Sleep(1 * time.Second) // Ensure some time has passed for cache eviction
 
 		if val, ok := cache.Get("A"); !ok || val != 1 {
 			t.Errorf("Expected 1, got %d", val)
