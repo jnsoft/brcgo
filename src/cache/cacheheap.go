@@ -3,7 +3,7 @@ package cache
 type Item[K comparable, V any] struct {
 	key      K
 	value    V
-	priority int // Frequency for LFU or timestamp for LRU
+	priority int
 	index    int // Index in the heap (updated by heap)
 }
 
