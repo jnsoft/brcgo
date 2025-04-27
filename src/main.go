@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"sort"
 	"sync"
@@ -44,7 +45,9 @@ func main() {
 		return
 	}
 
-	TestChannel2()
+	//TestChannel2()
+
+	TestContext()
 
 	// RunPipeline(fname, verbose)
 	//RunPipeline2(fname, verbose)
@@ -130,10 +133,23 @@ func TestChannel2() {
 }
 
 func TestContext() {
-	timeOutContext, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+	timeOutContext, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
 
-	go WaitSeconds()
+	req, err := http.NewRequestWithContext(timeOutContext, http.MethodGet, "https://www.google.com", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("Response Status:", resp.Status)
 }
 
 // simulate work
