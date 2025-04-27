@@ -43,6 +43,8 @@ go mod init github.com/brcgo
 ```
 go build -v ./...
 go test -v ./...
+cd src/cache
+go test -bench BenchmarkSimpleCache -count=2
 
 go tool pprof -http 127.0.0.1:8080 ./cpu_profile.prof
 ```

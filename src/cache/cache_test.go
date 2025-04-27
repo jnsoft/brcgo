@@ -240,6 +240,7 @@ func BenchmarkLFUCache(b *testing.B) {
 	}
 
 }
+
 func BenchmarkLRUCache(b *testing.B) {
 	cache := NewLRUCache[string, int](1000)
 	keys := make([]string, 1000)
@@ -269,11 +270,13 @@ func BenchmarkSimpleCacheParallel(b *testing.B) {
 	}
 
 	cache.SetMany(items)
-	var counter int64
 	klen := int64(len(keys))
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
+		// set local state for goroutine here:
+		var counter int64
+		// execute benchmark iteration:
 		for pb.Next() {
 			index := atomic.AddInt64(&counter, 1) % klen
 			cache.Get(keys[index])

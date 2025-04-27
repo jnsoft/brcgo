@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+type node[K comparable, V any] struct {
+	key   K
+	value V
+	prev  *node[K, V]
+	next  *node[K, V]
+}
+
 // Each key maintains a timestamp, and the cache evicts the least recently used key when full
 type LRUCache[K comparable, V any] struct {
 	capacity int
