@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	. "github.com/jnsoft/jngo/testhelper"
 )
@@ -197,6 +198,105 @@ func TestLRUCache(t *testing.T) {
 
 		if _, ok := cache.Get("A"); ok {
 			t.Errorf("Expected A to be evicted")
+		}
+	})
+}
+
+func TestDLFUCache(t *testing.T) {
+	t.Run("Get, Set and Contains", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](2, 0.5)
+		cache.Set("a", 1, time.Minute)
+
+		test := cache.Contains("a")
+		AssertTrue(t, test)
+
+		test = cache.Contains("b")
+		AssertFalse(t, test)
+
+		v, ok := cache.Get("a")
+		if !ok || v != 1 {
+			t.Errorf("expected to get value 1 for key 'a', got %v (exists: %v)", v, ok)
+		}
+		_, ok = cache.Get("b")
+		AssertFalse(t, ok)
+	})
+
+	t.Run("TestEviction", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](2, 0.5)
+		cache.Set("a", 1, time.Minute)
+		cache.Set("b", 2, time.Minute)
+		cache.Set("c", 3, time.Minute)
+
+		size := cache.Size()
+		AssertEqual(t, size, 2)
+	})
+
+	t.Run("TestFrequencyAffectsPriority", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](2, 0.5)
+		cache.Set("a", 1, time.Minute)
+		cache.Set("b", 2, time.Minute)
+
+		cache.Get("a")
+		cache.Get("a")
+		cache.Set("c", 3, time.Minute)
+
+		_, ok := cache.Get("a")
+		AssertTrue(t, ok)
+
+		_, ok = cache.Get("b")
+		AssertFalse(t, ok)
+	})
+
+	t.Run("TestExpiry", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](2, 0.5)
+		cache.Set("x", 42, 10*time.Millisecond)
+
+		time.Sleep(20 * time.Millisecond)
+		_, ok := cache.Get("x")
+		AssertFalse(t, ok)
+	})
+
+	t.Run("Test Delete and Clear", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](2, 0.5)
+		cache.Set("x", 10, time.Minute)
+		cache.Delete("x")
+
+		_, ok := cache.Get("x")
+		AssertFalse(t, ok)
+
+		cache.Set("a", 1, time.Minute)
+		cache.Set("b", 2, time.Minute)
+		cache.Clear()
+
+		size := cache.Size()
+		AssertEqual(t, size, 0)
+	})
+
+	t.Run("TestKeysAndValues", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](2, 0.5)
+		cache.Set("a", 1, time.Minute)
+		cache.Set("b", 2, time.Minute)
+
+		keys := cache.Keys()
+		values := cache.Values()
+
+		if len(keys) != 2 || len(values) != 2 {
+			t.Errorf("expected 2 keys and 2 values, got %d keys and %d values", len(keys), len(values))
+		}
+	})
+
+	t.Run("TestSetManyAndGetMany", func(t *testing.T) {
+		cache := NewDLFUCache[string, int](3, 0.5)
+		items := map[string]int{"a": 1, "b": 2, "c": 3}
+		cache.SetMany(items, time.Minute)
+
+		vals, missing := cache.GetMany([]string{"a", "b", "d"})
+
+		if len(vals) != 2 {
+			t.Errorf("expected 2 found keys, got %d", len(vals))
+		}
+		if len(missing) != 1 || missing[0] != "d" {
+			t.Errorf("expected 'd' to be missing, got: %v", missing)
 		}
 	})
 }

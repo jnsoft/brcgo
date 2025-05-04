@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/brcgo/src/domain"
-	"github.com/brcgo/src/misc"
+	"github.com/jnsoft/jngo/misc"
 )
 
 func ParserWorker(id int, lines <-chan string, parsedChans []chan domain.StringFloat, shardCount int, wg *sync.WaitGroup) {

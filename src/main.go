@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/brcgo/src/domain"
-	"github.com/brcgo/src/misc"
-	"github.com/brcgo/src/pipeline"
 	"github.com/brcgo/src/pipelines"
 	"github.com/brcgo/src/util"
 	"github.com/brcgo/src/workers"
+	"github.com/jnsoft/jngo/misc"
+	"github.com/jnsoft/jngo/pipeline"
+	"github.com/jnsoft/jngo/profiling"
 )
 
 const (
@@ -34,6 +35,7 @@ var (
 )
 
 func main() {
+
 	fname := "testfile_1000000.tmp"
 	verbose := false
 	if verbose {
@@ -195,7 +197,7 @@ func RunPipeline(fname string, verbose bool) {
 		}
 	}))
 
-	misc.ProfileFunction("Pipelinebuilder", PROF_FNAME, func() (interface{}, error) {
+	profiling.ProfileFunction("Pipelinebuilder", PROF_FNAME, func() (interface{}, error) {
 		pipeline.Run(pb3, func() {
 			domain.PrintResult(&hashmap, verbose)
 			fmt.Printf("Processed %d keys in %v\n", len(hashmap), time.Since(start))
@@ -212,7 +214,7 @@ func RunPipeline2(fname string, verbose bool) {
 		domain.PrintResult(&hashmap, verbose)
 	}
 
-	misc.ProfileFunction("Ideomatic pipeline", PROF_FNAME, func() (interface{}, error) {
+	profiling.ProfileFunction("Ideomatic pipeline", PROF_FNAME, func() (interface{}, error) {
 		pipelines.IdeomotaticPipeline[domain.StringFloat, domain.StationData](fname,
 			domain.ParseStringFloat,
 			collector,

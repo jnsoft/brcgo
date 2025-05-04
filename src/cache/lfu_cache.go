@@ -14,11 +14,13 @@ type LFUCache[K comparable, V any] struct {
 }
 
 func NewLFUCache[K comparable, V any](capacity int) *LFUCache[K, V] {
-	return &LFUCache[K, V]{
+	cache := &LFUCache[K, V]{
 		data:     make(map[K]*Item[K, V]),
 		heap:     &CacheMinHeap[K, V]{},
 		capacity: capacity,
 	}
+	heap.Init(cache.heap)
+	return cache
 }
 
 func (c *LFUCache[K, V]) Size() int {

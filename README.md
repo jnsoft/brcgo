@@ -36,7 +36,9 @@ read -s username
 git config --global user.email $username@users.noreply.github.com
 git config --global user.name $username
 
-go mod init github.com/brcgo
+go mod init github.com/jnsoft/brcgo
+
+GOPRIVATE=github.com/jnsoft/jngo go get github.com/jnsoft/jngo@latest
 ```
 
 ## Run and Test

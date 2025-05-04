@@ -45,7 +45,7 @@ func (pq DLFUMinHeap[K, V]) Swap(i, j int) {
 }
 
 func (pq *DLFUMinHeap[K, V]) Push(x any) {
-	entry := x.(*Item[K, V])
+	entry := x.(*DLFUItem[K, V])
 	entry.index = len(*pq)
 	*pq = append(*pq, entry)
 }
@@ -70,6 +70,8 @@ func NewDLFUCache[K comparable, V any](capacity int, gamma float64) *DLFUCache[K
 		capacity: capacity,
 		gamma:    gamma,
 	}
+
+	heap.Init(cache.heap)
 
 	if gamma < 1.0 {
 		cache.incr = 1.0 / (1.0 - gamma)
@@ -99,7 +101,8 @@ func (c *DLFUCache[K, V]) Get(key K) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if item, ok := c.data[key]; ok && !item.expired() {
+	item, ok := c.data[key]
+	if ok && !item.expired() {
 		item.priority += c.incr
 		heap.Fix(c.heap, item.index)
 		c.incr *= c.decay
@@ -110,7 +113,6 @@ func (c *DLFUCache[K, V]) Get(key K) (V, bool) {
 		var missing V
 		return missing, false
 	}
-
 }
 
 func (c *DLFUCache[K, V]) GetMany(keys []K) (map[K]V, []K) {
@@ -131,17 +133,34 @@ func (c *DLFUCache[K, V]) Set(key K, value V, expiry time.Duration) {
 	defer c.mu.Unlock()
 	expiryTime := time.Now().Add(expiry)
 
+	// Update existing item
 	if item, exists := c.data[key]; exists {
 		item.value = value
 		item.expiresAt = expiryTime
+		item.priority = c.incr
+		heap.Fix(c.heap, item.index)
+		return
 	}
 
-	item := &DLFUItem[K, V]{key: key, value: value, priority: c.incr}
+	// Add new item
+	item := &DLFUItem[K, V]{key: key, value: value, priority: c.incr, expiresAt: expiryTime}
 	c.data[key] = item
 	heap.Push(c.heap, item)
 
+	// Remove expired items
+	for c.heap.Len() > 0 {
+		top := (*c.heap)[0]
+		if top.expired() {
+			heap.Pop(c.heap)
+			delete(c.data, top.key)
+		} else {
+			break
+		}
+	}
+
+	// Evict if over capacity
 	if len(c.data) > c.capacity {
-		evicted := heap.Pop(c.heap).(*Item[K, V])
+		evicted := heap.Pop(c.heap).(*DLFUItem[K, V])
 		delete(c.data, evicted.key)
 	}
 }
@@ -188,4 +207,28 @@ func (c *DLFUCache[K, V]) Values() []V {
 		values = append(values, item.value)
 	}
 	return values
+}
+
+func (c *DLFUCache[K, V]) removeExpiredItems() {
+	for c.heap.Len() > 0 {
+		top := (*c.heap)[0]
+		if top.expired() {
+			heap.Pop(c.heap)
+			delete(c.data, top.key)
+		} else {
+			break
+		}
+	}
+
+	// Rebuild to remove items deeper in the heap
+	newHeap := &DLFUMinHeap[K, V]{}
+	for _, item := range *c.heap {
+		if !item.expired() {
+			*newHeap = append(*newHeap, item)
+		} else {
+			delete(c.data, item.key)
+		}
+	}
+	heap.Init(newHeap)
+	c.heap = newHeap
 }
