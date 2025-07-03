@@ -27,13 +27,12 @@ func NewByteStationReadingFromBytes(bs []byte) ByteStationReading {
 	neg := 0
 	if bs[ix+1] == ASCII_MINUS {
 		neg = 1
-		ix++
 	}
 
 	// read number
 	fac := 1
 	n := 0
-	for i := lg - 1; i > ix; i-- {
+	for i := lg - 1; i > ix+neg; i-- {
 		if bs[i] != ASCII_DOT {
 			n += fac * int(bs[i]-ASCII_ZERO)
 			fac *= 10

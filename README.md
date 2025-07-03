@@ -52,6 +52,9 @@ go tool pprof -http 127.0.0.1:8080 ./cpu_profile.prof
 
 
 ```
+go build -o .bin/app ./src/main.go
+./.bin/app -f ./src/testfile_10_000_000.tmp
+```
 
 
 ### Extra
