@@ -79,13 +79,16 @@ func main() {
 	log.Printf("Using file %s", *fname)
 	log.Printf("Using %d parallel workers", *no_of_pallell)
 
+	pipelines.Naive(*fname)
+
+	pipelines.NaiveBytes(*fname)
+
 	//TestChannel2()
 
 	//TestContext()
 
 	// RunPipeline(fname, verbose)
 	//RunPipeline2(fname, verbose)
-	Naive(fname, verbose)
 
 	//misc.ProfileFunction("Naive int", PROF_FNAME, func() (interface{}, error) {
 	//	return NaiveInt(fname, false), nil
