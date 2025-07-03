@@ -12,21 +12,21 @@ import (
 const BUFFER_SIZE = 1024 * 1024
 const ASCII_NEWLINE = '\n'
 
-func NaiveBytes(fname string) (string, error) {
+func NaiveBytes(fname string, MAX_CONCURRENT int) (string, error) {
 
 	startTime := time.Now()
-
-	result := domain.NewByteResult()
-	var wg sync.WaitGroup
-
-	buffer := make([]byte, BUFFER_SIZE)
-	var leftover []byte
 
 	file, err := os.Open(fname)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
+
+	result := domain.NewByteResult()
+	buffer := make([]byte, BUFFER_SIZE)
+	var leftover []byte
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, MAX_CONCURRENT)
 
 	for {
 		bytesRead, err := file.Read(buffer)
@@ -61,9 +61,12 @@ func NaiveBytes(fname string) (string, error) {
 
 		parseBuffer := make([]byte, lastNewline+1)
 		copy(parseBuffer, combined[:lastNewline+1])
+
 		wg.Add(1)
+		sem <- struct{}{} // Acquire a semaphore slot
 		go func(buf []byte) {
 			defer wg.Done()
+			defer func() { <-sem }() // Release the semaphore slot
 			ParseBuffer(buf, result)
 		}(parseBuffer)
 

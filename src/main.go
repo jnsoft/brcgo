@@ -79,9 +79,9 @@ func main() {
 	log.Printf("Using file %s", *fname)
 	log.Printf("Using %d parallel workers", *no_of_pallell)
 
-	pipelines.Naive(*fname)
+	// pipelines.Naive(*fname)
 
-	pipelines.NaiveBytes(*fname)
+	pipelines.NaiveBytes(*fname, *no_of_pallell)
 
 	//TestChannel2()
 
