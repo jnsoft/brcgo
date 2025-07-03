@@ -3,8 +3,9 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
-	"math"
+	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -23,6 +24,7 @@ import (
 const (
 	NO_OF_PARSER_WORKERS     = 4
 	NO_OF_AGGREGATOR_WORKERS = 4
+	MAX_NO_OF_ROWS           = 1000000000
 	ERROR                    = "❌ Error reading file"
 	WARNING                  = "⚠️ Warning"
 	DONE                     = "✅ Done"
@@ -35,25 +37,55 @@ var (
 )
 
 func main() {
+	fname := flag.String("f", "", "The name of the file to read")
+	verbose := flag.Bool("v", false, "Enable verbose logging")
+	no_of_pallell := flag.Int("p", 1, "Maximum number of concurrent threads")
+	generate := flag.Bool("g", false, "Create test file")
+	no_of_rows := flag.Int("r", 100, "Number of rows to generate")
+	no_of_stations := flag.Int("s", 10, "Number of stations in generated file")
 
-	fname := "testfile_1000000.tmp"
-	verbose := false
-	if verbose {
-		fmt.Println(verbose)
-	}
+	flag.Parse()
 
-	if false {
-		util.GenerateFile(1000000, 1500, fname)
+	log.SetFlags(0)
+	log.SetPrefix(time.Now().Format(time.RFC3339) + " ")
+
+	if *fname == "" {
+		log.Fatal("Filename is required: -f <file_name>")
+	} else if *generate {
+		if *no_of_rows <= 0 {
+			log.Fatal("Number of rows must be greater than 0")
+		}
+		if *no_of_stations <= 0 {
+			log.Fatal("Number of stations must be greater than 0")
+		}
+		if *no_of_rows > MAX_NO_OF_ROWS {
+			*no_of_rows = MAX_NO_OF_ROWS
+		}
+		log.Printf("Generating file with %d rows and %d stations\n", *no_of_rows, *no_of_stations)
+		util.GenerateFile(*no_of_rows, *no_of_stations, *fname)
+		log.Printf("File generated: %s\n", *fname)
 		return
+
+	} else {
+		if _, err := os.Stat(*fname); os.IsNotExist(err) {
+			log.Fatalf("File does not exist: %s", *fname)
+		}
+
 	}
+
+	if verbose != nil && *verbose {
+		log.Println("Verbose mode enabled")
+	}
+	log.Printf("Using file %s", *fname)
+	log.Printf("Using %d parallel workers", *no_of_pallell)
 
 	//TestChannel2()
 
-	TestContext()
+	//TestContext()
 
 	// RunPipeline(fname, verbose)
 	//RunPipeline2(fname, verbose)
-	//Naive(fname, verbose)
+	Naive(fname, verbose)
 
 	//misc.ProfileFunction("Naive int", PROF_FNAME, func() (interface{}, error) {
 	//	return NaiveInt(fname, false), nil
@@ -223,59 +255,6 @@ func RunPipeline2(fname string, verbose bool) {
 		)
 		return 0, nil
 	})
-}
-
-func Naive(fname string, verbose bool) error {
-	startTime := time.Now()
-
-	file, err := os.Open(fname)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	resultMap := make(map[string]domain.StationData)
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		data, _ := domain.ParseStringFloat(scanner.Text())
-		aggregated, exists := resultMap[data.Key]
-		if !exists {
-			resultMap[data.Key] = domain.StationData{
-				Min:   data.Value,
-				Max:   data.Value,
-				Sum:   data.Value,
-				Count: 1,
-			}
-		} else {
-			resultMap[data.Key] = domain.StationData{
-				Min:   math.Min(data.Value, aggregated.Min),
-				Max:   math.Max(data.Value, aggregated.Max),
-				Sum:   data.Value + aggregated.Sum,
-				Count: aggregated.Count + 1,
-			}
-		}
-
-	}
-
-	keys := make([]string, 0, len(resultMap))
-	for k := range resultMap {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	if verbose {
-		fmt.Println("\n Final aggregated results:")
-		for _, k := range keys {
-			fmt.Printf("%s=%s\n", k, resultMap[k].String())
-		}
-	}
-
-	elapsed := time.Since(startTime)
-	fmt.Printf("\nDone in %s. Processed %d lines, %d unique keys\n",
-		elapsed, -1, len(resultMap))
-
-	return scanner.Err()
 }
 
 func NaiveInt2(fname string, verbose bool) error {

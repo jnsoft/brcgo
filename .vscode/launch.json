@@ -8,10 +8,12 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/src/main.go",
-            //"args": [
-            //    "-v",
-            //    "net"
-            //]
+            "args": [
+                "-v",
+                "-p", "1",
+                "-f", "testfile_100.tmp",
+                "-g", "100", "10"
+            ]
         },
         {
             "name": "Launch Current File",
