@@ -74,9 +74,12 @@ func ParseBytesInt(bs []byte) BytesInt {
 	n := 0
 	for i := lg - 1; i > ix+neg; i-- {
 		if bs[i] != ASCII_DOT {
-			n += fac * int(ASCII_ZERO-bs[i])
+			n += fac * int(bs[i] - ASCII_ZERO)
 			fac *= 10
 		}
+	}
+	if neg == 1 {
+		n = -n
 	}
 
 	key := bs[:ix]
