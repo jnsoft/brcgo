@@ -26,3 +26,5 @@ go.work.sum
 
 # more file
 *.tmp
+*.prof
+.bin/

@@ -3,15 +3,15 @@ package workers
 import (
 	"sync"
 
-	"github.com/brcgo/src/models"
-	"github.com/brcgo/src/util"
+	"github.com/brcgo/src/domain"
+	"github.com/jnsoft/jngo/misc"
 )
 
-func ParserWorker(id int, lines <-chan string, parsedChans []chan models.ParsedData, shardCount int, wg *sync.WaitGroup) {
+func ParserWorker(id int, lines <-chan string, parsedChans []chan domain.StringFloat, shardCount int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for line := range lines {
-		data := models.ParseLine(line)
-		shard := util.HashKey(data.Key) % shardCount
+		data, _ := domain.ParseStringFloat(line)
+		shard := misc.HashKey(data.Key) % shardCount
 		parsedChans[shard] <- data
 	}
 }

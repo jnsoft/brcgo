@@ -33,19 +33,27 @@ Example of expected output:
 ## Start
 ```
 read -s username
-git config --global user.email $username@users.noreply.github.com
-git config --global user.name $username
+git config --global user.email $username@users.noreply.github.com && git config --global user.name $username
 
-go mod init github.com/brcgo
+go mod init github.com/jnsoft/brcgo
+
+GOPRIVATE=github.com/jnsoft/jngo go get github.com/jnsoft/jngo@latest
 ```
 
 ## Run and Test
 ```
 go build -v ./...
 go test -v ./...
+cd src/cache
+go test -bench BenchmarkSimpleCache -count=2
+
+go tool pprof -http 127.0.0.1:8080 ./cpu_profile.prof
 ```
 
 
+```
+go build -o .bin/app ./src/main.go
+./.bin/app -f ./src/testfile_10_000_000.tmp
 ```
 
 
