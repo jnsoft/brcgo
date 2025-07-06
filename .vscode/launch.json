@@ -10,8 +10,8 @@
             "program": "${workspaceFolder}/src/main.go",
             "args": [
                 "-v",
-                "-p", "1",
-                //"-f", "testfile_100.tmp"
+                "-p", "10",
+                //"-f", "testfile_10_000.tmp"
                 "-f", "testfile_1_000_000.tmp"
                 //,"-g", "-r", "1000000", "-s", "10000"
             ]
