@@ -50,9 +50,21 @@ go test -bench BenchmarkSimpleCache -count=2
 go tool pprof -http 127.0.0.1:8080 ./cpu_profile.prof
 ```
 
-
+### Build
 ```
 go build -o .bin/app ./src/main.go
+```
+
+### Create test files
+```
+./.bin/app -f ./src/testfile_10.tmp "-g" "-r" "10" "-s" "10"
+./.bin/app -f ./src/testfile_10_000.tmp "-g" "-r" "10000" "-s" "100"
+./.bin/app -f ./src/testfile_1_000_000.tmp "-g" "-r" "1000000" "-s" "10000"
+./.bin/app -f ./src/testfile_10_000_000.tmp "-g" "-r" "10000000" "-s" "10000"
+```
+
+### Run
+```
 ./.bin/app -f ./src/testfile_10_000_000.tmp
 ```
 
