@@ -25,7 +25,7 @@ func ParallellMmap(fname string, max_cuncurrent int) (string, error) {
 	elapsed := time.Since(readTime)
 	fmt.Printf("\nRead time: %s", elapsed)
 
-	results := make([]*domain.ByteResult2, 4)
+	results := make([]*domain.ByteResult2, max_cuncurrent)
 	for i := range results {
 		results[i] = domain.NewByteResult2()
 	}
@@ -37,7 +37,7 @@ func ParallellMmap(fname string, max_cuncurrent int) (string, error) {
 		wg.Add(1)
 		go func(buf []byte, result *domain.ByteResult2) {
 			defer wg.Done()
-			ParseBuffer(buf, result)
+			parseBuffer(buf, result)
 		}(data[i], results[i])
 	}
 
@@ -46,14 +46,21 @@ func ParallellMmap(fname string, max_cuncurrent int) (string, error) {
 	elapsed = time.Since(waitTime)
 	fmt.Printf("\nWait time: %s", elapsed)
 
+	mergeTime := time.Now()
+	for i := 1; i < len(results); i++ {
+		results[0].Merge(results[i])
+	}
+	elapsed = time.Since(mergeTime)
+	fmt.Printf("\nMerge time: %s", elapsed)
+
 	sortTime := time.Now()
-	res_str := result.GetSortedResults()
+	res_str := results[0].GetSortedResults()
 	elapsed = time.Since(sortTime)
 	fmt.Printf("\nSort time: %s", elapsed)
 
 	elapsed = time.Since(startTime)
 	fmt.Printf("\nDone in %s. Processed %d lines, %d unique keys\n",
-		elapsed, result.NoOfInputs(), result.NoOfStations())
+		elapsed, results[0].NoOfInputs(), results[0].NoOfStations())
 
 	return res_str, nil
 }
@@ -105,4 +112,23 @@ func splitFile(fname string, chunks int) ([][]byte, error) {
 	}
 
 	return result, nil
+}
+
+func parseBuffer(parseBuffer []byte, result *domain.ByteResult2) {
+	lineStartIdx := 0
+	for i := 0; i < len(parseBuffer); i++ {
+		if parseBuffer[i] == ASCII_NEWLINE {
+			lineEndIdx := i
+			// Handle \r\n (Windows line endings)
+			if lineEndIdx > lineStartIdx && parseBuffer[lineEndIdx-1] == '\r' {
+				lineEndIdx--
+			}
+			line := parseBuffer[lineStartIdx:lineEndIdx]
+			if len(line) > 0 {
+				reading := domain.NewByteStationReadingFromBytes(line)
+				result.Add(reading)
+			}
+			lineStartIdx = i + 1
+		}
+	}
 }

@@ -55,8 +55,8 @@ func (r *ByteResult2) Add(reading ByteStationReading) {
 }
 
 func (r *ByteResult2) Merge(r2 *ByteResult2) {
+	r.inputs += r2.inputs
 	for key, station := range r2.stations {
-		r.inputs += r2.inputs
 		existingStation, exists := r.stations[key]
 		if !exists {
 			r.stations[key] = &ByteStation{
