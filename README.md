@@ -65,7 +65,7 @@ go build -o .bin/app ./src/main.go
 
 ### Run
 ```
-./.bin/app -f ./src/testfile_10_000_000.tmp
+./.bin/app -f ./src/testfile_10_000_000.tmp -p 4
 ```
 
 

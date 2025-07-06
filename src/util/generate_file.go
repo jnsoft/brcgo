@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strconv"
@@ -15,14 +16,20 @@ func GenerateFile(size, no_of_locations int, fname string) error {
 	}
 	defer file.Close()
 
+	writer := bufio.NewWriterSize(file, 1<<20) // 1MB buffer
+
 	locations := get_locations(no_of_locations)
 
-	for range size {
-		rowData := fmt.Sprintf("%s;%s", locations[randx.Int(0, no_of_locations-1)], get_temp())
-		_, err := file.WriteString(rowData + "\n")
+	for i := 0; i < size; i++ {
+		rowData := fmt.Sprintf("%s;%s\n", locations[randx.Int(0, no_of_locations-1)], get_temp())
+		_, err := writer.WriteString(rowData)
 		if err != nil {
 			return fmt.Errorf("failed to write to file: %w", err)
 		}
+	}
+
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush buffer: %w", err)
 	}
 
 	fmt.Println("File created successfully:", fname)

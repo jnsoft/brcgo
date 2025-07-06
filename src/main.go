@@ -79,9 +79,11 @@ func main() {
 	log.Printf("Using file %s", *fname)
 	log.Printf("Using %d parallel workers", *no_of_pallell)
 
-	pipelines.Naive(*fname)
+	//pipelines.Naive(*fname)
 
-	pipelines.NaiveBytes(*fname, *no_of_pallell)
+	//pipelines.NaiveBytes(*fname, *no_of_pallell)
+
+	pipelines.ParallellMmap(*fname, 4)
 
 	pipelines.SimpleMmap(*fname)
 

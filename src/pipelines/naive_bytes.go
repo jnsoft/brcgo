@@ -34,10 +34,9 @@ func NaiveBytes(fname string, MAX_CONCURRENT int) (string, error) {
 			break
 		}
 
-		// combine leftover with current buffer
 		combined := append(leftover, buffer[:bytesRead]...)
 
-		// Find last newline
+		// Find the last newline in the combined buffer
 		lastNewline := -1
 		for i := len(combined) - 1; i >= 0; i-- {
 			if combined[i] == ASCII_NEWLINE {
@@ -46,34 +45,28 @@ func NaiveBytes(fname string, MAX_CONCURRENT int) (string, error) {
 			}
 		}
 
-		if lastNewline == -1 {
-			leftover = combined
-			if err != nil {
-				break
-			}
-			continue
+		if lastNewline != -1 {
+			// Process all complete lines
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(buf []byte) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				ParseBuffer(buf, result)
+			}(combined[:lastNewline+1])
+
+			// Save leftover (after last newline)
+			leftover = append([]byte{}, combined[lastNewline+1:]...)
+		} else {
+			// No newline found, keep accumulating
+			leftover = append([]byte{}, combined...)
 		}
-
-		leftover = nil
-		if lastNewline+1 < len(combined) {
-			leftover = combined[lastNewline+1:]
-		}
-
-		parseBuffer := make([]byte, lastNewline+1)
-		copy(parseBuffer, combined[:lastNewline+1])
-
-		wg.Add(1)
-		sem <- struct{}{} // Acquire a semaphore slot
-		go func(buf []byte) {
-			defer wg.Done()
-			defer func() { <-sem }() // Release the semaphore slot
-			ParseBuffer(buf, result)
-		}(parseBuffer)
 
 		if err != nil {
 			break
 		}
 	}
+
 	if len(leftover) > 0 {
 		reading := domain.NewByteStationReadingFromBytes(leftover)
 		result.Add(reading)
