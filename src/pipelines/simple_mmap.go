@@ -18,7 +18,7 @@ func SimpleMmap(fname string) (string, error) {
 	}
 	defer reader.Close()
 
-	result := domain.NewByteResult()
+	result := domain.NewByteResult2()
 
 	size := reader.Len()
 	buf := make([]byte, size)

@@ -83,7 +83,7 @@ func main() {
 
 	//pipelines.NaiveBytes(*fname, *no_of_pallell)
 
-	pipelines.ParallellMmap(*fname, 4)
+	pipelines.ParallellMmap(*fname, *no_of_pallell)
 
 	pipelines.SimpleMmap(*fname)
 
